@@ -9,60 +9,61 @@ require "ruby_wasm/rake_task"
 require "ruby_wasm/packager"
 require "ruby_wasm/cli"
 
-BUILD_SOURCES = %w[4.0 3.4 3.3 3.2 head]
+BUILD_SOURCES = %w[4.0 3.4]
 BUILD_PROFILES = %w[full minimal]
 
 BUILDS =
   BUILD_SOURCES
     .product(BUILD_PROFILES)
-    .map { |src, profile| [src, "wasm32-unknown-wasip1", profile] } +
-    BUILD_SOURCES.map { |src| [src, "wasm32-unknown-emscripten", "full"] }
+    .map { |src, profile| [src, "wasm32-unknown-wasip1", profile] }
+    # +
+    # BUILD_SOURCES.map { |src| [src, "wasm32-unknown-emscripten", "full"] }
 
 NPM_PACKAGES = [
-  {
-    name: "ruby-head-wasm-emscripten",
-    ruby_version: "head",
-    gemfile: nil,
-    target: "wasm32-unknown-emscripten"
-  },
-  {
-    name: "ruby-head-wasm-wasi",
-    ruby_version: "head",
-    gemfile: "packages/npm-packages/ruby-head-wasm-wasi/Gemfile",
-    target: "wasm32-unknown-wasip1"
-  },
-  {
-    name: "ruby-head-wasm-wasip2",
-    ruby_version: "head",
-    gemfile: "packages/npm-packages/ruby-head-wasm-wasip2/Gemfile",
-    target: "wasm32-unknown-wasip2",
-    enable_component_model: true
-  },
+  # {
+  #   name: "ruby-head-wasm-emscripten",
+  #   ruby_version: "head",
+  #   gemfile: nil,
+  #   target: "wasm32-unknown-emscripten"
+  # },
+  # {
+  #   name: "ruby-head-wasm-wasi",
+  #   ruby_version: "head",
+  #   gemfile: "packages/npm-packages/ruby-head-wasm-wasi/Gemfile",
+  #   target: "wasm32-unknown-wasip1"
+  # },
+  # {
+  #   name: "ruby-head-wasm-wasip2",
+  #   ruby_version: "head",
+  #   gemfile: "packages/npm-packages/ruby-head-wasm-wasip2/Gemfile",
+  #   target: "wasm32-unknown-wasip2",
+  #   enable_component_model: true
+  # },
   {
     name: "ruby-4.0-wasm-wasi",
     ruby_version: "4.0",
     gemfile: "packages/npm-packages/ruby-4.0-wasm-wasi/Gemfile",
     target: "wasm32-unknown-wasip1"
   },
-  {
-    name: "ruby-3.4-wasm-wasi",
-    ruby_version: "3.4",
-    gemfile: "packages/npm-packages/ruby-3.4-wasm-wasi/Gemfile",
-    target: "wasm32-unknown-wasip1"
-  },
-  {
-    name: "ruby-3.3-wasm-wasi",
-    ruby_version: "3.3",
-    gemfile: "packages/npm-packages/ruby-3.3-wasm-wasi/Gemfile",
-    target: "wasm32-unknown-wasip1"
-  },
-  {
-    name: "ruby-3.2-wasm-wasi",
-    ruby_version: "3.2",
-    gemfile: "packages/npm-packages/ruby-3.2-wasm-wasi/Gemfile",
-    target: "wasm32-unknown-wasip1"
-  },
-  { name: "ruby-wasm-wasi", target: "wasm32-unknown-wasip1" }
+  # {
+  #   name: "ruby-3.4-wasm-wasi",
+  #   ruby_version: "3.4",
+  #   gemfile: "packages/npm-packages/ruby-3.4-wasm-wasi/Gemfile",
+  #   target: "wasm32-unknown-wasip1"
+  # },
+  # {
+  #   name: "ruby-3.3-wasm-wasi",
+  #   ruby_version: "3.3",
+  #   gemfile: "packages/npm-packages/ruby-3.3-wasm-wasi/Gemfile",
+  #   target: "wasm32-unknown-wasip1"
+  # },
+  # {
+  #   name: "ruby-3.2-wasm-wasi",
+  #   ruby_version: "3.2",
+  #   gemfile: "packages/npm-packages/ruby-3.2-wasm-wasi/Gemfile",
+  #   target: "wasm32-unknown-wasip1"
+  # },
+  # { name: "ruby-wasm-wasi", target: "wasm32-unknown-wasip1" }
 ]
 
 STANDALONE_PACKAGES = [
