@@ -67,73 +67,82 @@ jobs:
           cat ci_matrix.json
           echo "entries=$(cat ci_matrix.json)" >> $GITHUB_OUTPUT
 
-  # rake-tasks:
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       entry: ${{ fromJson(needs.build-rake-task-matrix.outputs.entries) }}
-  #   needs: [build-rake-task-matrix]
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #       with:
-  #         submodules: true
-  #     - uses: actions/download-artifact@v8
-  #       with:
-  #         name: build-manifest
-  #     - uses: actions/cache@v5.0.3
-  #       if: ${{ matrix.entry.rubies_cache_key != null }}
-  #       with:
-  #         path: ./rubies
-  #         key: ${{ matrix.entry.rubies_cache_key }}
-  #     - uses: docker/setup-buildx-action@v3
-  #     - uses: docker/build-push-action@v5
-  #       id: builder-image
-  #       env:
-  #         DOCKER_BUILD_NO_SUMMARY: true
-  #       with:
-  #         context: builders/${{ matrix.entry.builder }}
-  #         load: true
-  #     - name: Setup builder container
-  #       run: |
-  #         docker run -dit -v "$GITHUB_WORKSPACE:/home/me/build" -w /home/me/build \
-  #           -e "ENABLE_GITHUB_ACTIONS_MARKUP=true" \
-  #           -e "RUBYWASM_UID=$(id -u)" -e "RUBYWASM_GID=$(id -g)" \
-  #           -e "GNUMAKEFLAGS=-j$((1 + $(nproc --all)))" \
-  #           --name builder \
-  #           ${{ steps.builder-image.outputs.imageid }} /bin/sh
-  #         echo 'docker exec -u me builder "$@"' > ./build-exec
-  #         chmod +x ./build-exec
-  #         # wait for docker exec to be ready
-  #         timeout 10 bash -c 'until ./build-exec bundle config set --local without check; do sleep 1; done'
-  #     - run: ./build-exec bundle config set --local without check
-  #     - run: ./build-exec ./bin/setup
-  #     - run: ./build-exec bundle exec rake compile
-  #     - name: Pre-release configuration
-  #       run: ./build-exec bundle exec rake ${{ matrix.entry.prerelease }}[${{ inputs.prerel_name }}]
-  #       if: ${{ inputs.prerel_name != '' && matrix.entry.prerelease != '' }}
-  #     - name: rake ${{ matrix.entry.task }}
-  #       run: ./build-exec rake --verbose ${{ matrix.entry.task }}
-  #     - uses: actions/upload-artifact@v7
-  #       if: ${{ matrix.entry.artifact }}
-  #       with:
-  #         name: ${{ matrix.entry.artifact_name }}
-  #         path: ${{ matrix.entry.artifact }}
-  #     - uses: ruby/setup-ruby@v1
-  #       if: ${{ matrix.entry.test != '' }}
-  #       with:
-  #         ruby-version: "3.4.1"
-  #         bundler-cache: false
-  #     - uses: actions/setup-node@v6
-  #       if: ${{ matrix.entry.test != '' }}
-  #       with:
-  #         node-version: "22.20.0"
-  #     - name: rake ${{ matrix.entry.test }}
-  #       run: |
-  #         bundle install --with=check --without=development
-  #         rake ${{ matrix.entry.test }}
-  #       if: ${{ matrix.entry.test != '' }}
-  #
+# We want this one:
+# {
+#   "task": "build:4.0-wasm32-unknown-wasip1-full",
+#   "artifact": "rubies/ruby-4.0-wasm32-unknown-wasip1-full.tar.gz",
+#   "artifact_name": "ruby-4.0-wasm32-unknown-wasip1-full",
+#   "builder": "wasm32-unknown-wasip1",
+#   "rubies_cache_key": "61f1afe691e2d301ab77da63073a7be5fdab7dd9677287031d428ec03365337c"
+# }
+
+  rake-tasks:
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJson(needs.build-rake-task-matrix.outputs.entries) }}
+    needs: [build-rake-task-matrix]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: build-manifest
+      - uses: actions/cache@v5.0.3
+        if: ${{ matrix.entry.rubies_cache_key != null }}
+        with:
+          path: ./rubies
+          key: ${{ matrix.entry.rubies_cache_key }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v5
+        id: builder-image
+        env:
+          DOCKER_BUILD_NO_SUMMARY: true
+        with:
+          context: builders/${{ matrix.entry.builder }}
+          load: true
+      - name: Setup builder container
+        run: |
+          docker run -dit -v "$GITHUB_WORKSPACE:/home/me/build" -w /home/me/build \
+            -e "ENABLE_GITHUB_ACTIONS_MARKUP=true" \
+            -e "RUBYWASM_UID=$(id -u)" -e "RUBYWASM_GID=$(id -g)" \
+            -e "GNUMAKEFLAGS=-j$((1 + $(nproc --all)))" \
+            --name builder \
+            ${{ steps.builder-image.outputs.imageid }} /bin/sh
+          echo 'docker exec -u me builder "$@"' > ./build-exec
+          chmod +x ./build-exec
+          # wait for docker exec to be ready
+          timeout 10 bash -c 'until ./build-exec bundle config set --local without check; do sleep 1; done'
+      - run: ./build-exec bundle config set --local without check
+      - run: ./build-exec ./bin/setup
+      - run: ./build-exec bundle exec rake compile
+      - name: Pre-release configuration
+        run: ./build-exec bundle exec rake ${{ matrix.entry.prerelease }}[${{ inputs.prerel_name }}]
+        if: ${{ inputs.prerel_name != '' && matrix.entry.prerelease != '' }}
+      - name: rake ${{ matrix.entry.task }}
+        run: ./build-exec rake --verbose ${{ matrix.entry.task }}
+      - uses: actions/upload-artifact@v7
+        if: ${{ matrix.entry.artifact }}
+        with:
+          name: ${{ matrix.entry.artifact_name }}
+          path: ${{ matrix.entry.artifact }}
+      - uses: ruby/setup-ruby@v1
+        if: ${{ matrix.entry.test != '' }}
+        with:
+          ruby-version: "3.4.1"
+          bundler-cache: false
+      - uses: actions/setup-node@v6
+        if: ${{ matrix.entry.test != '' }}
+        with:
+          node-version: "22.20.0"
+      - name: rake ${{ matrix.entry.test }}
+        run: |
+          bundle install --with=check --without=development
+          rake ${{ matrix.entry.test }}
+        if: ${{ matrix.entry.test != '' }}
+
   # release-artifacts:
   #   needs: [rake-tasks]
   #   runs-on: ubuntu-24.04
