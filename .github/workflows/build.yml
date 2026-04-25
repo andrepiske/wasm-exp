@@ -64,6 +64,7 @@ jobs:
         id: set-matrix
         run: |
           rake ci:rake_task_matrix
+          cat ci_matrix.json
           echo "entries=$(cat ci_matrix.json)" >> $GITHUB_OUTPUT
 
   # rake-tasks:
