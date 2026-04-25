@@ -1,0 +1,102 @@
+name: Build gems
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+  pull_request:
+  workflow_call:
+    inputs:
+      publish:
+        type: boolean
+        default: false
+      ref:
+        type: string
+        required: true
+
+jobs:
+  ci-data:
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.fetch.outputs.result }}
+    steps:
+      - uses: oxidize-rb/actions/fetch-ci-data@v1
+        id: fetch
+        with:
+          supported-ruby-platforms: |
+            exclude: [arm-linux, x64-mingw32, aarch64-mingw-ucrt]
+          stable-ruby-versions: |
+            exclude: [head]
+
+  cross-gem:
+    name: Compile native gem for ${{ matrix.ruby-platform }}
+    runs-on: ubuntu-latest
+    needs: ci-data
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby-platform: ${{ fromJSON(needs.ci-data.outputs.result).supported-ruby-platforms }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - name: Detect rb-sys version from Cargo.lock
+        id: rb-sys
+        run: |
+          version="$(awk '/name = "rb-sys"/{flag=1; next} flag && /version = / {gsub(/"/, "", $3); print $3; exit}' Cargo.lock)"
+          if [ -z "$version" ]; then
+            echo "Failed to detect rb-sys version from Cargo.lock" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build native gem with rb-sys-dock
+        id: cross-gem
+        env:
+          PLATFORM: ${{ matrix.ruby-platform }}
+          RUBY_VERSIONS: ${{ join(fromJSON(needs.ci-data.outputs.result).stable-ruby-versions, ',') }}
+          RB_SYS_VERSION: ${{ steps.rb-sys.outputs.version }}
+        run: |
+          gem install rb_sys -v "$RB_SYS_VERSION"
+          rb-sys-dock --platform "$PLATFORM" --directory . --ruby-versions "$RUBY_VERSIONS" --build
+
+          gem_path="$(find ./pkg -name "*-${PLATFORM}.gem" | head -n1)"
+          if [ -z "$gem_path" ]; then
+            echo "Failed to find built gem for ${PLATFORM}" >&2
+            ls -la ./pkg || true
+            exit 1
+          fi
+          echo "gem-path=$gem_path" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cross-gem-${{ matrix.ruby-platform }}
+          path: ${{ steps.cross-gem.outputs.gem-path }}
+          if-no-files-found: error
+
+      - uses: rubygems/configure-rubygems-credentials@v1.0.0
+        if: ${{ inputs.publish }}
+
+      - run: gem push "${{ steps.cross-gem.outputs.gem-path }}"
+        if: ${{ inputs.publish }}
+
+  push-src-gem:
+    name: Push source gem
+    runs-on: ubuntu-latest
+    if: ${{ inputs.publish }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+      - uses: rubygems/configure-rubygems-credentials@v1.0.0
+      - run: gem build
+      - run: gem push ruby_wasm-*.gem

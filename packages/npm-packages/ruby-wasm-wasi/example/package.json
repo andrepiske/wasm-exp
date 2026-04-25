@@ -1,0 +1,13 @@
+{
+  "name": "ruby-wasm-wasi-example",
+  "type": "module",
+  "scripts": {
+    "serve": "ruby -run -ehttpd"
+  },
+  "dependencies": {
+    "@ruby/head-wasm-wasi": "../../ruby-head-wasm-wasi"
+  },
+  "devDependencies": {
+    "rollup": "^2.62.0"
+  }
+}
